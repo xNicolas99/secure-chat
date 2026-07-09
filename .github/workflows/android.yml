@@ -29,13 +29,13 @@ jobs:
       run: ./gradlew :app:assembleRelease
 
     - name: Upload Play Release APK
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: play-release-apk
         path: app/build/outputs/apk/play/release/app-play-release-unsigned.apk
 
     - name: Upload Sideload Release APK
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: sideload-release-apk
         path: app/build/outputs/apk/sideload/release/app-sideload-release-unsigned.apk
