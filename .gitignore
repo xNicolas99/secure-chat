@@ -1,0 +1,10 @@
+build/
+.gradle/
+*.iml
+.idea/
+local.properties
+/app/build/
+/crypto/build/
+/keystore/build/
+/ime/build/
+/receiver/build/
