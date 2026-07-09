@@ -1,15 +1,12 @@
 package com.stealthcrypt.app
 
-import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -20,8 +17,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
-import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
 import com.stealthcrypt.keystore.KeyManager
 import java.security.SecureRandom
 
@@ -73,25 +68,6 @@ fun AppNavigation(keyManager: KeyManager, context: Context) {
 fun SetupScreen(onPasswordSet: (String) -> Unit) {
     var passwordInput by remember { mutableStateOf("") }
 
-    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
-        if (result.contents != null) {
-            onPasswordSet(result.contents)
-        }
-    }
-
-    val requestPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            val options = ScanOptions().apply {
-                setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                setPrompt("Scan StealthCrypt QR Code")
-                setBeepEnabled(false)
-            }
-            scanLauncher.launch(options)
-        }
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -127,6 +103,7 @@ fun SetupScreen(onPasswordSet: (String) -> Unit) {
 
         Button(
             onClick = {
+                // Generate a strong 256-bit random password represented as Hex
                 val randomBytes = ByteArray(32)
                 SecureRandom().nextBytes(randomBytes)
                 val randomHex = randomBytes.joinToString("") { "%02x".format(it) }
@@ -134,16 +111,6 @@ fun SetupScreen(onPasswordSet: (String) -> Unit) {
             }
         ) {
             Text("Generate Random Key")
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(
-            onClick = {
-                requestPermissionLauncher.launch(Manifest.permission.CAMERA)
-            }
-        ) {
-            Text("Scan QR Code")
         }
     }
 }
@@ -168,7 +135,7 @@ fun MainScreen(currentPassword: String, onClearKey: () -> Unit, context: Context
         }
         Spacer(modifier = Modifier.height(8.dp))
 
-        Text("Enable Notification Listener:")
+        Text("Enable Notification Listener (Optional):")
         Button(onClick = {
             context.startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"))
         }) {

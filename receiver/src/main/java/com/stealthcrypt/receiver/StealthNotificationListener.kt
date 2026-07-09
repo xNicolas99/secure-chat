@@ -11,8 +11,6 @@ import android.service.notification.StatusBarNotification
 import android.util.Log
 import com.stealthcrypt.crypto.StealthCrypto
 import com.stealthcrypt.keystore.KeyManager
-import com.goterl.lazysodium.LazySodiumAndroid
-import com.goterl.lazysodium.SodiumAndroid
 
 class StealthNotificationListener : NotificationListenerService() {
 
@@ -22,7 +20,6 @@ class StealthNotificationListener : NotificationListenerService() {
     private val TRUNCATION_LIMIT = 5000
 
     override fun onCreate() {
-        try { StealthCrypto.init(LazySodiumAndroid(SodiumAndroid())) } catch(e: Exception) {}
         super.onCreate()
         keyManager = KeyManager(this)
         createNotificationChannel()
@@ -38,9 +35,7 @@ class StealthNotificationListener : NotificationListenerService() {
         }
 
         val extras = sbn.notification.extras
-        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
-            ?: extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)?.lastOrNull()?.toString()
-            ?: return
+        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: return
 
         val password = keyManager.getPassword() ?: return
 
