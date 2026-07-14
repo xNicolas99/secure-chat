@@ -25,8 +25,6 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import com.goterl.lazysodium.LazySodiumAndroid
-import com.goterl.lazysodium.SodiumAndroid
 import com.stealthcrypt.crypto.StealthCrypto
 import com.stealthcrypt.keystore.KeyManager
 
@@ -35,7 +33,6 @@ class StealthImeService : InputMethodService(), LifecycleOwner, ViewModelStoreOw
     private var composeView: ComposeView? = null
     private var isEncryptionEnabled by mutableStateOf(true)
     private var currentText by mutableStateOf("")
-    private var errorMessage by mutableStateOf<String?>(null)
     private lateinit var keyManager: KeyManager
 
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -48,7 +45,6 @@ class StealthImeService : InputMethodService(), LifecycleOwner, ViewModelStoreOw
 
     override fun onCreate() {
         super.onCreate()
-        try { StealthCrypto.init(LazySodiumAndroid(SodiumAndroid())) } catch(e: Exception) {}
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         keyManager = KeyManager(this)
@@ -63,12 +59,11 @@ class StealthImeService : InputMethodService(), LifecycleOwner, ViewModelStoreOw
                 MaterialTheme {
                     ImeUi(
                         text = currentText,
-                        errorMessage = errorMessage,
                         isEncryptionEnabled = isEncryptionEnabled,
-                        onToggleEncryption = { isEncryptionEnabled = it; errorMessage = null },
+                        onToggleEncryption = { isEncryptionEnabled = it },
                         onCommit = { commitCurrentText() },
-                        onKeyPress = { currentText += it; errorMessage = null },
-                        onBackspace = { handleBackspace(); errorMessage = null }
+                        onTextChange = { currentText = it },
+                        onBackspace = { handleBackspace() }
                     )
                 }
             }
@@ -88,7 +83,6 @@ class StealthImeService : InputMethodService(), LifecycleOwner, ViewModelStoreOw
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         currentText = ""
-        errorMessage = null
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
@@ -115,28 +109,26 @@ class StealthImeService : InputMethodService(), LifecycleOwner, ViewModelStoreOw
                 try {
                     val ciphertext = StealthCrypto.encrypt(currentText, password)
                     ic.commitText(ciphertext, 1)
-                    currentText = ""
                 } catch (e: Exception) {
-                    errorMessage = "Encryption failed."
+                    ic.commitText("[Encryption Failed]", 1)
                 }
             } else {
-                errorMessage = "No key set."
+                ic.commitText("[No Key Set]", 1)
             }
         } else {
             ic.commitText(currentText, 1)
-            currentText = ""
         }
+        currentText = ""
     }
 }
 
 @Composable
 fun ImeUi(
     text: String,
-    errorMessage: String?,
     isEncryptionEnabled: Boolean,
     onToggleEncryption: (Boolean) -> Unit,
     onCommit: () -> Unit,
-    onKeyPress: (String) -> Unit,
+    onTextChange: (String) -> Unit,
     onBackspace: () -> Unit
 ) {
     Column(
@@ -146,41 +138,38 @@ fun ImeUi(
             .padding(4.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(4.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = if (isEncryptionEnabled) "🔒" else "🔓",
-                modifier = Modifier.padding(end = 8.dp)
+                modifier = Modifier.padding(8.dp)
             )
             Switch(
                 checked = isEncryptionEnabled,
                 onCheckedChange = onToggleEncryption
             )
             Spacer(modifier = Modifier.width(8.dp))
-
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .background(Color.White, shape = MaterialTheme.shapes.small)
-                    .padding(8.dp)
-            ) {
-                if (errorMessage != null) {
-                    Text(errorMessage, color = Color.Red)
-                } else if (text.isEmpty()) {
-                    Text("Type message here...", color = Color.Gray)
-                } else {
-                    Text(text)
-                }
+            OutlinedTextField(
+                value = text,
+                onValueChange = onTextChange,
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Type message here...") },
+                singleLine = true
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Button(onClick = onBackspace) {
+                Text("⌫")
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(onClick = onCommit) {
+                Text("Send")
             }
         }
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        KeyboardLayout(
-            onKeyPress = onKeyPress,
-            onBackspace = onBackspace,
-            onCommit = onCommit
-        )
     }
 }

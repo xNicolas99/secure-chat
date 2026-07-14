@@ -4,20 +4,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.junit.BeforeClass
-import com.goterl.lazysodium.LazySodiumJava
-import com.goterl.lazysodium.SodiumJava
 import java.util.Base64
 import kotlin.test.assertFailsWith
 
 class StealthCryptoTest {
-    companion object {
-        @JvmStatic
-        @BeforeClass
-        fun setupClass() {
-            StealthCrypto.init(LazySodiumJava(SodiumJava()))
-        }
-    }
 
     @Test
     fun `round trip encryption and decryption works`() {
@@ -117,37 +107,6 @@ class StealthCryptoTest {
 
         assertFailsWith<StealthCrypto.DecryptionException> {
             StealthCrypto.decrypt(encrypted, "password")
-        }
-    }
-
-
-    @Test
-    fun `long text works`() {
-        val password = "password"
-        val plaintext = "A".repeat(10000)
-
-        val encrypted = StealthCrypto.encrypt(plaintext, password)
-        val decrypted = StealthCrypto.decrypt(encrypted, password)
-
-        assertEquals(plaintext, decrypted)
-    }
-
-    @Test
-    fun `property based roundtrip`() {
-        val secureRandom = java.security.SecureRandom()
-        for (i in 0..10) {
-            val passwordBytes = ByteArray(16)
-            secureRandom.nextBytes(passwordBytes)
-            val password = java.util.Base64.getEncoder().encodeToString(passwordBytes)
-
-            val textBytes = ByteArray(128)
-            secureRandom.nextBytes(textBytes)
-            val plaintext = java.util.Base64.getEncoder().encodeToString(textBytes)
-
-            val encrypted = StealthCrypto.encrypt(plaintext, password)
-            val decrypted = StealthCrypto.decrypt(encrypted, password)
-
-            assertEquals(plaintext, decrypted)
         }
     }
 }

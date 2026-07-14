@@ -37,8 +37,6 @@ dependencies {
 
     implementation(project(":crypto"))
     implementation(project(":keystore"))
-    implementation("com.goterl:lazysodium-android:5.2.0@aar")
-    implementation("net.java.dev.jna:jna:5.13.0@aar")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

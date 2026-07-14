@@ -1,20 +1,15 @@
 package com.stealthcrypt.crypto
 
-import com.goterl.lazysodium.LazySodium
-import com.goterl.lazysodium.interfaces.AEAD
+import com.goterl.lazysodium.LazySodiumJava
+import com.goterl.lazysodium.SodiumJava
 import com.goterl.lazysodium.interfaces.PwHash
+import com.sun.jna.NativeLong
 import java.nio.charset.StandardCharsets
 import java.security.SecureRandom
 import java.util.Base64
 
 object StealthCrypto {
-    @Volatile private var sodiumInstance: LazySodium? = null
-
-    fun init(instance: LazySodium) {
-        sodiumInstance = instance
-    }
-
-    private fun sodium(): LazySodium = sodiumInstance ?: error("StealthCrypto.init() nicht aufgerufen")
+    private val lazySodium = LazySodiumJava(SodiumJava())
 
     const val MAGIC = "SC"
     const val VERSION: Byte = 1
@@ -33,13 +28,11 @@ object StealthCrypto {
         require(salt.size == SALT_BYTES) { "Salt must be $SALT_BYTES bytes" }
         val key = ByteArray(KEY_BYTES)
         val pwdBytes = password.toByteArray(StandardCharsets.UTF_8)
-
-        val nativePwHash = sodium() as PwHash.Native
-        val success = nativePwHash.cryptoPwHash(
+        val success = lazySodium.cryptoPwHash(
             key, KEY_BYTES,
             pwdBytes, pwdBytes.size,
             salt,
-            OPS_LIMIT.toLong(), MEM_LIMIT,
+            OPS_LIMIT, MEM_LIMIT,
             PwHash.Alg.PWHASH_ALG_ARGON2ID13
         )
         if (!success) {
@@ -61,6 +54,7 @@ object StealthCrypto {
     }
 
     // Envelope: [magic:2B "SC"] [version:1B] [kdf_salt:16B] [nonce:24B] [ciphertext+tag: n B]
+    // Using Base64URL for transport to avoid chat app parsing issues better than Z85.
 
     fun encrypt(plaintext: String, password: String): String {
         val plaintextBytes = plaintext.toByteArray(StandardCharsets.UTF_8)
@@ -70,8 +64,7 @@ object StealthCrypto {
 
         val ciphertext = ByteArray(plaintextBytes.size + MAC_BYTES)
 
-        val nativeAead = sodium() as AEAD.Native
-        val success = nativeAead.cryptoAeadXChaCha20Poly1305IetfEncrypt(
+        val success = lazySodium.cryptoAeadXChaCha20Poly1305IetfEncrypt(
             ciphertext, null,
             plaintextBytes, plaintextBytes.size.toLong(),
             null, 0,
@@ -146,8 +139,7 @@ object StealthCrypto {
         val key = deriveKey(password, salt)
         val decrypted = ByteArray(ciphertextSize - MAC_BYTES)
 
-        val nativeAead = sodium() as AEAD.Native
-        val success = nativeAead.cryptoAeadXChaCha20Poly1305IetfDecrypt(
+        val success = lazySodium.cryptoAeadXChaCha20Poly1305IetfDecrypt(
             decrypted, null,
             null,
             ciphertext, ciphertext.size.toLong(),
