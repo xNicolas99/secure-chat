@@ -1,5 +1,6 @@
 package com.stealthcrypt.crypto
 
+import com.goterl.lazysodium.LazySodium
 import com.goterl.lazysodium.LazySodiumJava
 import com.goterl.lazysodium.SodiumJava
 import com.goterl.lazysodium.interfaces.PwHash
@@ -9,7 +10,13 @@ import java.security.SecureRandom
 import java.util.Base64
 
 object StealthCrypto {
-    private val lazySodium = LazySodiumJava(SodiumJava())
+    private var _lazySodium: LazySodium? = null
+    private val lazySodium: LazySodium
+        get() = _lazySodium ?: LazySodiumJava(SodiumJava()).also { _lazySodium = it }
+
+    fun init(sodium: LazySodium) {
+        _lazySodium = sodium
+    }
 
     const val MAGIC = "SC"
     const val VERSION: Byte = 1
