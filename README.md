@@ -5,6 +5,7 @@ StealthCrypt is a proof-of-concept Android application that provides end-to-end 
 ## Features
 
 - **Custom Keyboard**: Samsung-style dark keyboard (German QWERTZ with umlauts, number row, symbols page) that encrypts your text on-the-fly and sends it as base64-encoded ciphertext. A toggle switches between encrypted and plain typing.
+- **Emoji Picker**: Full emoji panel (😊 key) with categories, recently-used list and skin-tone variants via long-press. Emoji glyphs come from the system font, so on Samsung devices they look exactly like the Samsung keyboard's emojis.
 - **Works with any keyboard**: Prefer the Samsung or Google keyboard? Type normally, select the text and choose **🔒 Encrypt** / **🔓 Decrypt** from Android's text-selection menu. In editable fields the selection is replaced in place; in read-only contexts (e.g. a received chat bubble) the result is shown in a dialog with a copy button.
 - **Auto-Decryption**: A Notification Listener service automatically decrypts incoming messages from any messenger (WhatsApp, Signal, Telegram, SMS, ...) if you hold the correct shared key. It reads plain, expanded and MessagingStyle notification texts and uses a cheap envelope pre-check so normal messages cost no CPU.
 - **Manual Decryption**: Fallback decryption by sharing text from any app to StealthCrypt.

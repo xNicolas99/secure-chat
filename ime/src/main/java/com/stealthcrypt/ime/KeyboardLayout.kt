@@ -1,5 +1,6 @@
 package com.stealthcrypt.ime
 
+import android.view.ContextThemeWrapper
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -12,6 +13,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.emoji2.emojipicker.EmojiPickerView
 
 /** Farbwelt angelehnt an die Samsung-Tastatur im Dark Mode. */
 object KeyboardColors {
@@ -28,14 +31,14 @@ private val LETTER_ROWS = listOf(
     listOf("q", "w", "e", "r", "t", "z", "u", "i", "o", "p", "ü"),
     listOf("a", "s", "d", "f", "g", "h", "j", "k", "l", "ö", "ä"),
     listOf("⇧", "y", "x", "c", "v", "b", "n", "m", "⌫"),
-    listOf("!#1", ",", "SPACE", ".", "↵")
+    listOf("!#1", "😊", ",", "SPACE", ".", "↵")
 )
 
 private val SYMBOL_ROWS = listOf(
     listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0"),
     listOf("@", "#", "€", "_", "&", "-", "+", "(", ")", "/"),
     listOf("*", "\"", "'", ":", ";", "!", "?", "%", "⌫"),
-    listOf("ABC", ",", "SPACE", ".", "↵")
+    listOf("ABC", "😊", ",", "SPACE", ".", "↵")
 )
 
 @Composable
@@ -46,6 +49,16 @@ fun KeyboardLayout(
 ) {
     var isShifted by remember { mutableStateOf(false) }
     var isSymbols by remember { mutableStateOf(false) }
+    var isEmoji by remember { mutableStateOf(false) }
+
+    if (isEmoji) {
+        EmojiPanel(
+            onEmojiPicked = onKeyPress,
+            onBackspace = onBackspace,
+            onClose = { isEmoji = false }
+        )
+        return
+    }
 
     val rows = if (isSymbols) SYMBOL_ROWS else LETTER_ROWS
 
@@ -59,7 +72,7 @@ fun KeyboardLayout(
         for (row in rows) {
             Row(modifier = Modifier.fillMaxWidth()) {
                 for (key in row) {
-                    val isFunction = key in listOf("⇧", "⌫", "!#1", "ABC", "↵", "SPACE")
+                    val isFunction = key in listOf("⇧", "⌫", "!#1", "ABC", "↵", "SPACE", "😊")
                     val displayKey = when {
                         key == "SPACE" -> " "
                         !isSymbols && isShifted && key.length == 1 && key[0].isLetter() -> key.uppercase()
@@ -73,7 +86,7 @@ fun KeyboardLayout(
                         modifier = Modifier
                             .weight(
                                 when (key) {
-                                    "SPACE" -> 4f
+                                    "SPACE" -> 3f
                                     "⇧", "⌫", "!#1", "ABC", "↵" -> 1.5f
                                     else -> 1f
                                 }
@@ -90,6 +103,7 @@ fun KeyboardLayout(
                                 "⇧" -> isShifted = !isShifted
                                 "!#1" -> isSymbols = true
                                 "ABC" -> isSymbols = false
+                                "😊" -> isEmoji = true
                                 "⌫" -> onBackspace()
                                 "SPACE" -> onKeyPress(" ")
                                 "↵" -> onCommit()
@@ -103,6 +117,70 @@ fun KeyboardLayout(
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * Vollwertiger Emoji-Picker (Kategorien, zuletzt verwendet, Hauttöne per
+ * Langdruck). Die Emoji-Glyphen kommen vom System-Font — auf Samsung-Geräten
+ * sehen sie damit exakt wie in der Samsung-Tastatur aus.
+ */
+@Composable
+fun EmojiPanel(
+    onEmojiPicked: (String) -> Unit,
+    onBackspace: () -> Unit,
+    onClose: () -> Unit
+) {
+    val currentOnEmojiPicked by rememberUpdatedState(onEmojiPicked)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(KeyboardColors.Background)
+            .padding(bottom = 8.dp)
+    ) {
+        AndroidView(
+            factory = { ctx ->
+                EmojiPickerView(ContextThemeWrapper(ctx, android.R.style.Theme_DeviceDefault)).apply {
+                    emojiGridColumns = 9
+                }
+            },
+            update = { view ->
+                view.setOnEmojiPickedListener { item -> currentOnEmojiPicked(item.emoji) }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(258.dp)
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 3.dp)
+        ) {
+            KeyButton(
+                text = "ABC",
+                modifier = Modifier
+                    .weight(1.5f)
+                    .padding(horizontal = 2.5.dp, vertical = 3.dp),
+                background = KeyboardColors.FunctionKey,
+                onClick = onClose
+            )
+            KeyButton(
+                text = " ",
+                modifier = Modifier
+                    .weight(5f)
+                    .padding(horizontal = 2.5.dp, vertical = 3.dp),
+                onClick = { onEmojiPicked(" ") }
+            )
+            KeyButton(
+                text = "⌫",
+                modifier = Modifier
+                    .weight(1.5f)
+                    .padding(horizontal = 2.5.dp, vertical = 3.dp),
+                background = KeyboardColors.FunctionKey,
+                onClick = onBackspace
+            )
         }
     }
 }
