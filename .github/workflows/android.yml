@@ -3,12 +3,16 @@ name: Android CI
 on:
   push:
     branches: [ "main" ]
+    tags:
+      - 'v*'
   pull_request:
     branches: [ "main" ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
     - uses: actions/checkout@v4
 
@@ -39,3 +43,16 @@ jobs:
       with:
         name: sideload-release-apk
         path: app/build/outputs/apk/sideload/release/app-sideload-release-unsigned.apk
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: |
+          app/build/outputs/apk/sideload/release/*.apk
+          app/build/outputs/apk/play/release/*.apk
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
