@@ -13,7 +13,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -33,7 +35,7 @@ class StealthImeService : InputMethodService(), LifecycleOwner, ViewModelStoreOw
     private var composeView: ComposeView? = null
     private var isEncryptionEnabled by mutableStateOf(true)
     private var currentText by mutableStateOf("")
-    private lateinit var keyManager: KeyManager
+    private var keyManager: KeyManager? = null
 
     private val lifecycleRegistry = LifecycleRegistry(this)
     private val store = ViewModelStore()
@@ -47,10 +49,24 @@ class StealthImeService : InputMethodService(), LifecycleOwner, ViewModelStoreOw
         super.onCreate()
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
-        keyManager = KeyManager(this)
+        // Keystore access can fail on some devices; the keyboard must never crash because of it.
+        keyManager = try {
+            KeyManager(this)
+        } catch (e: Exception) {
+            null
+        }
     }
 
     override fun onCreateInputView(): View {
+        // Compose resolves the ViewTree owners from the *root* view of the IME window
+        // (the DecorView), not from the ComposeView itself. Without this the keyboard
+        // crashes with "ViewTreeLifecycleOwner not found" the moment it is shown.
+        window?.window?.decorView?.let { decorView ->
+            decorView.setViewTreeLifecycleOwner(this)
+            decorView.setViewTreeViewModelStoreOwner(this)
+            decorView.setViewTreeSavedStateRegistryOwner(this)
+        }
+
         val view = ComposeView(this).apply {
             setViewTreeLifecycleOwner(this@StealthImeService)
             setViewTreeViewModelStoreOwner(this@StealthImeService)
@@ -61,8 +77,8 @@ class StealthImeService : InputMethodService(), LifecycleOwner, ViewModelStoreOw
                         text = currentText,
                         isEncryptionEnabled = isEncryptionEnabled,
                         onToggleEncryption = { isEncryptionEnabled = it },
+                        onKeyPress = { handleKeyPress(it) },
                         onCommit = { commitCurrentText() },
-                        onTextChange = { currentText = it },
                         onBackspace = { handleBackspace() }
                     )
                 }
@@ -85,12 +101,17 @@ class StealthImeService : InputMethodService(), LifecycleOwner, ViewModelStoreOw
         currentText = ""
     }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        return super.onKeyDown(keyCode, event)
+    private fun handleKeyPress(key: String) {
+        if (isEncryptionEnabled) {
+            currentText += key
+        } else {
+            // Without encryption the keyboard behaves like a normal one.
+            currentInputConnection?.commitText(key, 1)
+        }
     }
 
     private fun handleBackspace() {
-        if (currentText.isNotEmpty()) {
+        if (isEncryptionEnabled && currentText.isNotEmpty()) {
             currentText = currentText.dropLast(1)
         } else {
             val ic = currentInputConnection
@@ -101,22 +122,30 @@ class StealthImeService : InputMethodService(), LifecycleOwner, ViewModelStoreOw
 
     private fun commitCurrentText() {
         val ic: InputConnection = currentInputConnection ?: return
-        if (currentText.isEmpty()) return
 
-        if (isEncryptionEnabled) {
-            val password = keyManager.getPassword()
-            if (password != null) {
-                try {
-                    val ciphertext = StealthCrypto.encrypt(currentText, password)
-                    ic.commitText(ciphertext, 1)
-                } catch (e: Exception) {
-                    ic.commitText("[Encryption Failed]", 1)
-                }
-            } else {
-                ic.commitText("[No Key Set]", 1)
+        if (!isEncryptionEnabled || currentText.isEmpty()) {
+            // Nothing buffered: behave like the enter/send key of a normal keyboard.
+            if (!sendDefaultEditorAction(true)) {
+                ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+                ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+            }
+            return
+        }
+
+        val password = try {
+            keyManager?.getPassword()
+        } catch (e: Exception) {
+            null
+        }
+        if (password != null) {
+            try {
+                val ciphertext = StealthCrypto.encrypt(currentText, password)
+                ic.commitText(ciphertext, 1)
+            } catch (e: Exception) {
+                ic.commitText("[Encryption Failed]", 1)
             }
         } else {
-            ic.commitText(currentText, 1)
+            ic.commitText("[No Key Set]", 1)
         }
         currentText = ""
     }
@@ -127,49 +156,51 @@ fun ImeUi(
     text: String,
     isEncryptionEnabled: Boolean,
     onToggleEncryption: (Boolean) -> Unit,
+    onKeyPress: (String) -> Unit,
     onCommit: () -> Unit,
-    onTextChange: (String) -> Unit,
     onBackspace: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFE0E0E0))
-            .padding(4.dp)
+            .background(KeyboardColors.Background)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = if (isEncryptionEnabled) "🔒" else "🔓",
-                modifier = Modifier.padding(8.dp)
+                fontSize = 18.sp
             )
+            Spacer(modifier = Modifier.width(8.dp))
             Switch(
                 checked = isEncryptionEnabled,
-                onCheckedChange = onToggleEncryption
+                onCheckedChange = onToggleEncryption,
+                colors = SwitchDefaults.colors(
+                    checkedTrackColor = KeyboardColors.Accent
+                )
             )
-            Spacer(modifier = Modifier.width(8.dp))
-            OutlinedTextField(
-                value = text,
-                onValueChange = onTextChange,
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Type message here...") },
-                singleLine = true
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = when {
+                    !isEncryptionEnabled -> "Unverschlüsselt – tippt direkt ins Feld"
+                    text.isEmpty() -> "Nachricht eingeben…"
+                    else -> text
+                },
+                color = if (isEncryptionEnabled && text.isNotEmpty()) Color.White else KeyboardColors.HintText,
+                fontSize = 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
             )
         }
-        Spacer(modifier = Modifier.height(4.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
-        ) {
-            Button(onClick = onBackspace) {
-                Text("⌫")
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            Button(onClick = onCommit) {
-                Text("Send")
-            }
-        }
+        KeyboardLayout(
+            onKeyPress = onKeyPress,
+            onBackspace = onBackspace,
+            onCommit = onCommit
+        )
     }
 }

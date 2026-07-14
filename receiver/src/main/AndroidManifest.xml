@@ -12,6 +12,32 @@
             </intent-filter>
         </service>
 
+        <!-- Keyboard-independent: works with Samsung keyboard, Gboard etc.
+             via the text selection menu (select text -> "Encrypt"/"Decrypt") -->
+        <activity
+            android:name=".EncryptTextActivity"
+            android:label="🔒 Encrypt"
+            android:exported="true"
+            android:theme="@android:style/Theme.DeviceDefault.Dialog.Alert">
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".DecryptTextActivity"
+            android:label="🔓 Decrypt"
+            android:exported="true"
+            android:theme="@android:style/Theme.DeviceDefault.Dialog.Alert">
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".ShareActivity"
             android:exported="true"
