@@ -105,6 +105,7 @@ class StealthNotificationListener : NotificationListenerService() {
             .setStyle(Notification.BigTextStyle().bigText(decryptedText))
             .setSmallIcon(android.R.drawable.ic_secure)
             .setAutoCancel(true)
+            .setVisibility(Notification.VISIBILITY_SECRET)
             .build()
 
         // Use a different ID to avoid replacing the original chat notification
