@@ -15,15 +15,35 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.emoji2.emojipicker.EmojiPickerView
+import androidx.compose.foundation.isSystemInDarkTheme
 
-/** Farbwelt angelehnt an die Samsung-Tastatur im Dark Mode. */
 object KeyboardColors {
-    val Background = Color(0xFF1B1D21)
-    val Key = Color(0xFF3B3E45)
-    val FunctionKey = Color(0xFF2A2C31)
+    val BackgroundDark = Color(0xFF1B1D21)
+    val KeyDark = Color(0xFF3B3E45)
+    val FunctionKeyDark = Color(0xFF2A2C31)
+    val TextDark = Color.White
+    val HintTextDark = Color(0xFF9AA0A6)
+
+    val BackgroundLight = Color(0xFFEBEBEB)
+    val KeyLight = Color(0xFFFFFFFF)
+    val FunctionKeyLight = Color(0xFFD6D6D6)
+    val TextLight = Color.Black
+    val HintTextLight = Color(0xFF6B6B6B)
+
     val Accent = Color(0xFF3D7EFF)
-    val Text = Color.White
-    val HintText = Color(0xFF9AA0A6)
+}
+
+@Composable
+fun getKeyboardColors(): Map<String, Color> {
+    val isDark = isSystemInDarkTheme()
+    return mapOf(
+        "Background" to if (isDark) KeyboardColors.BackgroundDark else KeyboardColors.BackgroundLight,
+        "Key" to if (isDark) KeyboardColors.KeyDark else KeyboardColors.KeyLight,
+        "FunctionKey" to if (isDark) KeyboardColors.FunctionKeyDark else KeyboardColors.FunctionKeyLight,
+        "Text" to if (isDark) KeyboardColors.TextDark else KeyboardColors.TextLight,
+        "HintText" to if (isDark) KeyboardColors.HintTextDark else KeyboardColors.HintTextLight,
+        "Accent" to KeyboardColors.Accent
+    )
 }
 
 private val LETTER_ROWS = listOf(
@@ -50,6 +70,7 @@ fun KeyboardLayout(
     var isShifted by remember { mutableStateOf(false) }
     var isSymbols by remember { mutableStateOf(false) }
     var isEmoji by remember { mutableStateOf(false) }
+    val colors = getKeyboardColors()
 
     if (isEmoji) {
         EmojiPanel(
@@ -65,9 +86,9 @@ fun KeyboardLayout(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(KeyboardColors.Background)
+            .background(colors["Background"]!!)
             .padding(horizontal = 3.dp)
-            .padding(top = 4.dp, bottom = 8.dp)
+            .padding(top = 4.dp, bottom = 32.dp)
     ) {
         for (row in rows) {
             Row(modifier = Modifier.fillMaxWidth()) {
@@ -91,13 +112,14 @@ fun KeyboardLayout(
                                     else -> 1f
                                 }
                             )
-                            .padding(horizontal = 2.5.dp, vertical = 3.dp),
+                            .padding(horizontal = 3.dp, vertical = 3.dp), // 6dp total horizontal between keys
                         background = when {
-                            key == "↵" -> KeyboardColors.Accent
-                            key == "⇧" && isShifted -> KeyboardColors.HintText
-                            isFunction && key != "SPACE" -> KeyboardColors.FunctionKey
-                            else -> KeyboardColors.Key
+                            key == "↵" -> colors["Accent"]!!
+                            key == "⇧" && isShifted -> colors["HintText"]!!
+                            isFunction && key != "SPACE" -> colors["FunctionKey"]!!
+                            else -> colors["Key"]!!
                         },
+                        textColor = colors["Text"]!!,
                         onClick = {
                             when (key) {
                                 "⇧" -> isShifted = !isShifted
@@ -133,12 +155,13 @@ fun EmojiPanel(
     onClose: () -> Unit
 ) {
     val currentOnEmojiPicked by rememberUpdatedState(onEmojiPicked)
+    val colors = getKeyboardColors()
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(KeyboardColors.Background)
-            .padding(bottom = 8.dp)
+            .background(colors["Background"]!!)
+            .padding(bottom = 32.dp)
     ) {
         AndroidView(
             factory = { ctx ->
@@ -162,23 +185,27 @@ fun EmojiPanel(
                 text = "ABC",
                 modifier = Modifier
                     .weight(1.5f)
-                    .padding(horizontal = 2.5.dp, vertical = 3.dp),
-                background = KeyboardColors.FunctionKey,
+                    .padding(horizontal = 3.dp, vertical = 3.dp),
+                background = colors["FunctionKey"]!!,
+                textColor = colors["Text"]!!,
                 onClick = onClose
             )
             KeyButton(
                 text = " ",
                 modifier = Modifier
                     .weight(5f)
-                    .padding(horizontal = 2.5.dp, vertical = 3.dp),
+                    .padding(horizontal = 3.dp, vertical = 3.dp),
+                background = colors["Key"]!!,
+                textColor = colors["Text"]!!,
                 onClick = { onEmojiPicked(" ") }
             )
             KeyButton(
                 text = "⌫",
                 modifier = Modifier
                     .weight(1.5f)
-                    .padding(horizontal = 2.5.dp, vertical = 3.dp),
-                background = KeyboardColors.FunctionKey,
+                    .padding(horizontal = 3.dp, vertical = 3.dp),
+                background = colors["FunctionKey"]!!,
+                textColor = colors["Text"]!!,
                 onClick = onBackspace
             )
         }
@@ -189,19 +216,20 @@ fun EmojiPanel(
 fun KeyButton(
     text: String,
     modifier: Modifier = Modifier,
-    background: Color = KeyboardColors.Key,
+    background: Color,
+    textColor: Color,
     onClick: () -> Unit
 ) {
     Box(
         modifier = modifier
             .height(46.dp)
-            .background(background, shape = RoundedCornerShape(6.dp))
+            .background(background, shape = RoundedCornerShape(4.dp)) // 4dp corner radius
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
-            color = KeyboardColors.Text,
+            color = textColor,
             fontSize = 18.sp,
             fontWeight = FontWeight.Normal
         )

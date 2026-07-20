@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import com.stealthcrypt.crypto.StealthCrypto
 import com.stealthcrypt.keystore.KeyManager
 
@@ -72,22 +73,31 @@ abstract class ProcessTextActivity : ComponentActivity() {
 
     private fun showResultDialog(output: String) {
         setContent {
+            var displayedText by remember { mutableStateOf(output) }
+
+            LaunchedEffect(Unit) {
+                delay(5000)
+                displayedText = " ".repeat(output.length) // Shred
+                finish()
+            }
+
             MaterialTheme {
                 Surface(
                     modifier = Modifier.padding(16.dp),
-                    shape = MaterialTheme.shapes.medium
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(text = dialogTitle, style = MaterialTheme.typography.titleLarge)
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = output)
+                        Text(text = displayedText)
                         Spacer(modifier = Modifier.height(16.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.End
                         ) {
                             Button(onClick = {
-                                copyToClipboard(output)
+                                copyToClipboard(displayedText)
                                 finish()
                             }) {
                                 Text("Copy")
