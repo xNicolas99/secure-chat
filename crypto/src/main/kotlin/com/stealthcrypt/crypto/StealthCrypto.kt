@@ -118,10 +118,12 @@ object StealthCrypto {
         }
 
         var offset = 0
+        var diff = 0
         for (i in magicBytes.indices) {
-            if (envelope[offset + i] != magicBytes[i]) {
-                throw DecryptionException("Invalid magic bytes")
-            }
+            diff = diff or (envelope[offset + i].toInt() xor magicBytes[i].toInt())
+        }
+        if (diff != 0) {
+            throw DecryptionException("Invalid magic bytes")
         }
         offset += magicBytes.size
 
