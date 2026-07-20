@@ -8,6 +8,10 @@ import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.stealthcrypt.crypto.StealthCrypto
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import android.util.Log
 import com.stealthcrypt.keystore.KeyManager
 import java.util.Base64
 
@@ -15,8 +19,10 @@ class StealthNotificationListener : NotificationListenerService() {
 
     private var keyManager: KeyManager? = null
 
-    // Limits text to decrypt to prevent memory/performance issues on very large messages
-    private val TRUNCATION_LIMIT = 5000
+    companion object {
+        // Limits text to decrypt to prevent memory/performance issues on very large messages
+        const val TRUNCATION_LIMIT = 5000
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -49,15 +55,17 @@ class StealthNotificationListener : NotificationListenerService() {
         val candidates = collectTexts(extras)
 
         var counter = 0
-        for (text in candidates) {
-            val trimmed = text.trim().take(TRUNCATION_LIMIT)
-            if (!looksLikeEnvelope(trimmed)) continue
-            try {
-                val decryptedText = StealthCrypto.decrypt(trimmed, password)
-                showDecryptedNotification(decryptedText, sender, sbn.id + counter)
-                counter++
-            } catch (e: Exception) {
-                // Not a StealthCrypt message or wrong key. Ignore silently.
+        CoroutineScope(Dispatchers.Default).launch {
+            for (text in candidates) {
+                val trimmed = text.trim().take(TRUNCATION_LIMIT)
+                if (!looksLikeEnvelope(trimmed)) continue
+                try {
+                    val decryptedText = StealthCrypto.decrypt(trimmed, password)
+                    showDecryptedNotification(decryptedText, sender, sbn.id + counter)
+                    counter++
+                } catch (e: Exception) {
+                    Log.d("StealthCrypt", "Decryption failed or not a StealthCrypt message")
+                }
             }
         }
     }

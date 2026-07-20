@@ -2,7 +2,6 @@ package com.stealthcrypt.crypto
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Base64
 import kotlin.test.assertFailsWith

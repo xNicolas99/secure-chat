@@ -7,14 +7,12 @@ import androidx.security.crypto.MasterKey
 
 class KeyManager(context: Context) {
 
-    private val sharedPreferences: SharedPreferences
-
-    init {
+    private val sharedPreferences: SharedPreferences by lazy {
         val masterKey = MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build()
 
-        sharedPreferences = EncryptedSharedPreferences.create(
+        EncryptedSharedPreferences.create(
             context,
             "stealthcrypt_keys",
             masterKey,
