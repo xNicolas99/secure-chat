@@ -12,34 +12,42 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.background
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import com.stealthcrypt.crypto.StealthCrypto
 import com.stealthcrypt.keystore.KeyManager
+import java.util.Base64
 
-/**
- * Keyboard-independent encryption via Android's text-selection menu
- * (ACTION_PROCESS_TEXT): type with any keyboard (Samsung, Gboard, ...),
- * select the text and choose "Encrypt" / "Decrypt" from the popup menu.
- *
- * In editable fields the selected text is replaced in place. In read-only
- * contexts (e.g. a received chat bubble) the result is shown in a dialog
- * with a copy button instead.
- */
 abstract class ProcessTextActivity : ComponentActivity() {
 
     protected abstract fun transform(input: String, password: String): String
     protected abstract val dialogTitle: String
+    protected open val requiresEnvelopeCheck: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val input = intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
+        val input = intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()?.trim()
         val readonly = intent.getBooleanExtra(Intent.EXTRA_PROCESS_TEXT_READONLY, false)
 
         if (input.isNullOrEmpty()) {
             finish()
             return
+        }
+
+        if (requiresEnvelopeCheck) {
+            val isValidEnvelope = try {
+                val decoded = Base64.getUrlDecoder().decode(input)
+                decoded.size >= 2 && decoded[0] == 'S'.code.toByte() && decoded[1] == 'C'.code.toByte()
+            } catch (e: Exception) {
+                false
+            }
+            if (!isValidEnvelope) {
+                Toast.makeText(this, "Not a valid StealthCrypt envelope.", Toast.LENGTH_SHORT).show()
+                finish()
+                return
+            }
         }
 
         val password = try {
@@ -62,7 +70,6 @@ abstract class ProcessTextActivity : ComponentActivity() {
         }
 
         if (!readonly) {
-            // Editable field: replace the selection directly.
             val result = Intent().putExtra(Intent.EXTRA_PROCESS_TEXT, output)
             setResult(RESULT_OK, result)
             finish()
@@ -77,15 +84,17 @@ abstract class ProcessTextActivity : ComponentActivity() {
 
             LaunchedEffect(Unit) {
                 delay(5000)
-                displayedText = " ".repeat(output.length) // Shred
+                displayedText = ""
                 finish()
             }
 
             MaterialTheme {
+                Box(modifier = Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Transparent), contentAlignment = androidx.compose.ui.Alignment.Center) {
                 Surface(
                     modifier = Modifier.padding(16.dp),
                     shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.surfaceVariant
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shadowElevation = 8.dp
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(text = dialogTitle, style = MaterialTheme.typography.titleLarge)
@@ -109,6 +118,7 @@ abstract class ProcessTextActivity : ComponentActivity() {
                         }
                     }
                 }
+                }
             }
         }
     }
@@ -128,6 +138,7 @@ class EncryptTextActivity : ProcessTextActivity() {
 
 class DecryptTextActivity : ProcessTextActivity() {
     override val dialogTitle = "🔓 Decrypted Message"
+    override val requiresEnvelopeCheck = true
     override fun transform(input: String, password: String): String =
         StealthCrypto.decrypt(input.trim(), password)
 }
