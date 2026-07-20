@@ -171,10 +171,12 @@ fun ImeUi(
     onCommit: () -> Unit,
     onBackspace: () -> Unit
 ) {
+    val colors = getKeyboardColors()
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(KeyboardColors.Background)
+            .background(colors["Background"]!!)
     ) {
         Row(
             modifier = Modifier
@@ -191,7 +193,7 @@ fun ImeUi(
                 checked = isEncryptionEnabled,
                 onCheckedChange = onToggleEncryption,
                 colors = SwitchDefaults.colors(
-                    checkedTrackColor = KeyboardColors.Accent
+                    checkedTrackColor = colors["Accent"]!!
                 )
             )
             Spacer(modifier = Modifier.width(12.dp))
@@ -201,7 +203,7 @@ fun ImeUi(
                     text.isEmpty() -> "Nachricht eingeben…"
                     else -> text
                 },
-                color = if (isEncryptionEnabled && text.isNotEmpty()) Color.White else KeyboardColors.HintText,
+                color = if (isEncryptionEnabled && text.isNotEmpty()) Color.White else colors["HintText"]!!,
                 fontSize = 15.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
