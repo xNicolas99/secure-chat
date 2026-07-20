@@ -4,7 +4,6 @@ import com.goterl.lazysodium.LazySodium
 import com.goterl.lazysodium.LazySodiumJava
 import com.goterl.lazysodium.SodiumJava
 import com.goterl.lazysodium.interfaces.PwHash
-import com.sun.jna.NativeLong
 import java.nio.charset.StandardCharsets
 import java.security.SecureRandom
 import java.util.Base64
@@ -30,6 +29,7 @@ object StealthCrypto {
     private val MEM_LIMIT = PwHash.MEMLIMIT_INTERACTIVE
 
     class DecryptionException(message: String) : Exception(message)
+    class EncryptionException(message: String) : Exception(message)
 
     fun deriveKey(password: String, salt: ByteArray): ByteArray {
         require(salt.size == SALT_BYTES) { "Salt must be $SALT_BYTES bytes" }
@@ -43,7 +43,7 @@ object StealthCrypto {
             PwHash.Alg.PWHASH_ALG_ARGON2ID13
         )
         if (!success) {
-            throw RuntimeException("Key derivation failed")
+            throw EncryptionException("Key derivation failed")
         }
         return key
     }
@@ -63,6 +63,44 @@ object StealthCrypto {
     // Envelope: [magic:2B "SC"] [version:1B] [kdf_salt:16B] [nonce:24B] [ciphertext+tag: n B]
     // Using Base64URL for transport to avoid chat app parsing issues better than Z85.
 
+    data class EnvelopeData(val salt: ByteArray, val nonce: ByteArray, val ciphertext: ByteArray)
+
+    private fun parseEnvelope(envelope: ByteArray): EnvelopeData {
+        val magicBytes = MAGIC.toByteArray(StandardCharsets.UTF_8)
+        val minSize = magicBytes.size + 1 + SALT_BYTES + NONCE_BYTES + MAC_BYTES
+        if (envelope.size < minSize) {
+            throw DecryptionException("Envelope too short")
+        }
+
+        var offset = 0
+        val actualMagicBytes = ByteArray(magicBytes.size)
+        System.arraycopy(envelope, offset, actualMagicBytes, 0, magicBytes.size)
+        if (!actualMagicBytes.contentEquals(magicBytes)) {
+            throw DecryptionException("Invalid magic bytes")
+        }
+        offset += magicBytes.size
+
+        val version = envelope[offset]
+        if (version != VERSION) {
+            throw DecryptionException("Unsupported version")
+        }
+        offset += 1
+
+        val salt = ByteArray(SALT_BYTES)
+        System.arraycopy(envelope, offset, salt, 0, SALT_BYTES)
+        offset += SALT_BYTES
+
+        val nonce = ByteArray(NONCE_BYTES)
+        System.arraycopy(envelope, offset, nonce, 0, NONCE_BYTES)
+        offset += NONCE_BYTES
+
+        val ciphertextSize = envelope.size - offset
+        val ciphertext = ByteArray(ciphertextSize)
+        System.arraycopy(envelope, offset, ciphertext, 0, ciphertextSize)
+
+        return EnvelopeData(salt, nonce, ciphertext)
+    }
+
     fun encrypt(plaintext: String, password: String): String {
         val plaintextBytes = plaintext.toByteArray(StandardCharsets.UTF_8)
         val salt = generateSalt()
@@ -79,7 +117,7 @@ object StealthCrypto {
         )
 
         if (!success) {
-            throw RuntimeException("Encryption failed")
+            throw EncryptionException("Encryption failed")
         }
 
         val magicBytes = MAGIC.toByteArray(StandardCharsets.UTF_8)
@@ -111,42 +149,10 @@ object StealthCrypto {
             throw DecryptionException("Invalid Base64")
         }
 
-        val magicBytes = MAGIC.toByteArray(StandardCharsets.UTF_8)
-        val minSize = magicBytes.size + 1 + SALT_BYTES + NONCE_BYTES + MAC_BYTES
-        if (envelope.size < minSize) {
-            throw DecryptionException("Envelope too short")
-        }
-
-        var offset = 0
-        var diff = 0
-        for (i in magicBytes.indices) {
-            diff = diff or (envelope[offset + i].toInt() xor magicBytes[i].toInt())
-        }
-        if (diff != 0) {
-            throw DecryptionException("Invalid magic bytes")
-        }
-        offset += magicBytes.size
-
-        val version = envelope[offset]
-        if (version != VERSION) {
-            throw DecryptionException("Unsupported version")
-        }
-        offset += 1
-
-        val salt = ByteArray(SALT_BYTES)
-        System.arraycopy(envelope, offset, salt, 0, SALT_BYTES)
-        offset += SALT_BYTES
-
-        val nonce = ByteArray(NONCE_BYTES)
-        System.arraycopy(envelope, offset, nonce, 0, NONCE_BYTES)
-        offset += NONCE_BYTES
-
-        val ciphertextSize = envelope.size - offset
-        val ciphertext = ByteArray(ciphertextSize)
-        System.arraycopy(envelope, offset, ciphertext, 0, ciphertextSize)
+        val (salt, nonce, ciphertext) = parseEnvelope(envelope)
 
         val key = deriveKey(password, salt)
-        val decrypted = ByteArray(ciphertextSize - MAC_BYTES)
+        val decrypted = ByteArray(ciphertext.size - MAC_BYTES)
 
         val success = lazySodium.cryptoAeadXChaCha20Poly1305IetfDecrypt(
             decrypted, null,

@@ -92,3 +92,6 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
+dependencies {
+    testImplementation("org.robolectric:robolectric:4.10.3")
+}

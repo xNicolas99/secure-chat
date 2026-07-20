@@ -25,6 +25,10 @@ import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.stealthcrypt.crypto.StealthCrypto
@@ -138,11 +142,18 @@ class StealthImeService : InputMethodService(), LifecycleOwner, ViewModelStoreOw
             null
         }
         if (password != null) {
-            try {
-                val ciphertext = StealthCrypto.encrypt(currentText, password)
-                ic.commitText(ciphertext, 1)
-            } catch (e: Exception) {
-                ic.commitText("[Encryption Failed]", 1)
+            val textToEncrypt = currentText
+            CoroutineScope(Dispatchers.Default).launch {
+                try {
+                    val ciphertext = StealthCrypto.encrypt(textToEncrypt, password)
+                    withContext(Dispatchers.Main) {
+                        ic.commitText(ciphertext, 1)
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        ic.commitText("[Encryption Failed]", 1)
+                    }
+                }
             }
         } else {
             ic.commitText("[No Key Set]", 1)

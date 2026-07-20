@@ -173,13 +173,16 @@ fun generateQrCode(text: String): Bitmap? {
         val size = 512
         val bitMatrix = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, size, size)
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565)
-        for (x in 0 until size) {
-            for (y in 0 until size) {
-                bitmap.setPixel(x, y, if (bitMatrix.get(x, y)) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+        val pixels = IntArray(size * size)
+        for (y in 0 until size) {
+            val offset = y * size
+            for (x in 0 until size) {
+                pixels[offset + x] = if (bitMatrix.get(x, y)) android.graphics.Color.BLACK else android.graphics.Color.WHITE
             }
         }
+        bitmap.setPixels(pixels, 0, size, 0, 0, size, size)
         return bitmap
-    } catch (e: Exception) {
+    } catch (e: com.google.zxing.WriterException) {
         return null
     }
 }
