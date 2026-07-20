@@ -4,6 +4,10 @@ import android.view.ContextThemeWrapper
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
+
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,14 +22,14 @@ import androidx.emoji2.emojipicker.EmojiPickerView
 import androidx.compose.foundation.isSystemInDarkTheme
 
 object KeyboardColors {
-    val BackgroundDark = Color(0xFF1B1D21)
-    val KeyDark = Color(0xFF3B3E45)
+    val BackgroundDark = Color(0xFF000000)
+    val KeyDark = Color(0xFF2C2C2C)
     val FunctionKeyDark = Color(0xFF2A2C31)
     val TextDark = Color.White
     val HintTextDark = Color(0xFF9AA0A6)
 
-    val BackgroundLight = Color(0xFFEBEBEB)
-    val KeyLight = Color(0xFFFFFFFF)
+    val BackgroundLight = Color(0xFFFFFFFF)
+    val KeyLight = Color(0xFFEBEBEB)
     val FunctionKeyLight = Color(0xFFD6D6D6)
     val TextLight = Color.Black
     val HintTextLight = Color(0xFF6B6B6B)
@@ -88,7 +92,7 @@ fun KeyboardLayout(
             .fillMaxWidth()
             .background(colors["Background"]!!)
             .padding(horizontal = 3.dp)
-            .padding(top = 4.dp, bottom = 32.dp)
+            .padding(top = 4.dp)
     ) {
         for (row in rows) {
             Row(modifier = Modifier.fillMaxWidth()) {
@@ -112,7 +116,7 @@ fun KeyboardLayout(
                                     else -> 1f
                                 }
                             )
-                            .padding(horizontal = 3.dp, vertical = 3.dp), // 6dp total horizontal between keys
+                            .padding(6.dp), // 6dp total horizontal between keys
                         background = when {
                             key == "↵" -> colors["Accent"]!!
                             key == "⇧" && isShifted -> colors["HintText"]!!
@@ -140,6 +144,7 @@ fun KeyboardLayout(
                 }
             }
         }
+        Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }
 }
 
@@ -161,7 +166,7 @@ fun EmojiPanel(
         modifier = Modifier
             .fillMaxWidth()
             .background(colors["Background"]!!)
-            .padding(bottom = 32.dp)
+
     ) {
         AndroidView(
             factory = { ctx ->
@@ -185,7 +190,7 @@ fun EmojiPanel(
                 text = "ABC",
                 modifier = Modifier
                     .weight(1.5f)
-                    .padding(horizontal = 3.dp, vertical = 3.dp),
+                    .padding(6.dp),
                 background = colors["FunctionKey"]!!,
                 textColor = colors["Text"]!!,
                 onClick = onClose
@@ -194,7 +199,7 @@ fun EmojiPanel(
                 text = " ",
                 modifier = Modifier
                     .weight(5f)
-                    .padding(horizontal = 3.dp, vertical = 3.dp),
+                    .padding(6.dp),
                 background = colors["Key"]!!,
                 textColor = colors["Text"]!!,
                 onClick = { onEmojiPicked(" ") }
@@ -203,12 +208,13 @@ fun EmojiPanel(
                 text = "⌫",
                 modifier = Modifier
                     .weight(1.5f)
-                    .padding(horizontal = 3.dp, vertical = 3.dp),
+                    .padding(6.dp),
                 background = colors["FunctionKey"]!!,
                 textColor = colors["Text"]!!,
                 onClick = onBackspace
             )
         }
+        Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }
 }
 
@@ -223,7 +229,7 @@ fun KeyButton(
     Box(
         modifier = modifier
             .height(46.dp)
-            .background(background, shape = RoundedCornerShape(4.dp)) // 4dp corner radius
+            .background(background, shape = RoundedCornerShape(size = 4.dp)) // 4dp corner radius
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
